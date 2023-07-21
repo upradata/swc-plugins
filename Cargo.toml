@@ -1,22 +1,22 @@
 [workspace]
-members = [
-  "packages/emotion",
-  "packages/jest",
-  "packages/loadable-components",
-  "packages/styled-components",
-  "packages/styled-jsx",
-  "packages/transform-imports",
-  "packages/relay",
-  "packages/noop",
-]
+  members = [
+    "packages/emotion",
+    "packages/jest",
+    "packages/loadable-components",
+    "packages/styled-components",
+    "packages/styled-jsx",
+    "packages/transform-imports",
+    "packages/relay",
+    "packages/noop",
+  ]
 
 [profile.release]
-codegen-units = 1
-# debug = true
-lto = true
+  codegen-units = 1
+  # debug = true
+  lto = true
 
-# Optimize for size
-opt-level = "s"
+  # Optimize for size
+  opt-level = "s"
 
-# Strip debug symbols
-strip = "symbols"
+  # Strip debug symbols
+  strip = "symbols"

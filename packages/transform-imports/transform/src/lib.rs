@@ -1,6 +1,79 @@
 use std::collections::HashMap;
 
 use convert_case::{Case, Casing};
+use voca_rs::{
+    case::{
+        camel_case, kebab_case, lower_case, lower_first, pascal_case, snake_case, upper_case,
+        upper_first,
+    },
+    manipulate::{replace, replace_all},
+};
+
+#[macro_use]
+extern crate lazy_static;
+
+#[derive(Serialize, Deserialize, Debug, Eq, Hash, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum TransformerName {
+    None,
+
+    // 1 Arg
+    CamelCase,
+    KebabCase,
+    DashedCase,
+    PascalCase,
+    SnakeCase,
+    UpperCase,
+    UpperFirst,
+    LowerCase,
+    LowerFirst,
+
+    // 3 Args
+    Replace,
+    ReplaceAll,
+}
+
+struct Transformers {
+    args1: HashMap<TransformerName, fn(&str) -> String>,
+    args2: HashMap<TransformerName, fn(&str, &str) -> String>,
+    args3: HashMap<TransformerName, fn(&str, &str, &str) -> String>,
+}
+
+lazy_static! {
+    static ref TRANSFORM_MAPPING: Transformers = {
+        use TransformerName::*;
+
+        let mut m1 = HashMap::<TransformerName, fn(&str) -> String>::new();
+        let mut m2 = HashMap::<TransformerName, fn(&str, &str) -> String>::new();
+        let mut m3 = HashMap::<TransformerName, fn(&str, &str, &str) -> String>::new();
+
+        m1.insert(CamelCase, camel_case);
+        m1.insert(KebabCase, kebab_case);
+        m1.insert(PascalCase, pascal_case);
+        m1.insert(DashedCase, kebab_case);
+        m1.insert(SnakeCase, snake_case);
+        m1.insert(UpperCase, upper_case);
+        m1.insert(UpperFirst, upper_first);
+        m1.insert(LowerCase, lower_case);
+        m1.insert(LowerCase, lower_first);
+        m1.insert(None, |v| v.to_string());
+
+        m2.insert(None, |v, _| v.to_string());
+
+        m3.insert(Replace, replace);
+        m3.insert(ReplaceAll, replace_all);
+        m3.insert(None, |v, _, _| v.to_string());
+
+        let m = Transformers {
+            args1: m1,
+            args2: m2,
+            args3: m3,
+        };
+
+        m
+    };
+}
+
 use handlebars::{Context, Handlebars, Helper, HelperResult, Output, RenderContext};
 use once_cell::sync::Lazy;
 use regex::{Captures, Regex};
@@ -258,6 +331,9 @@ pub fn modularize_imports(config: Config) -> impl Fold {
     folder
         .renderer
         .register_helper("kebabCase", Box::new(helper_kebab_case));
+
+    folder.renderer.register_helper("helper", Box::new(helper));
+
     for (mut k, v) in config.packages {
         // XXX: Should we keep this hack?
         if !k.starts_with('^') && !k.ends_with('$') {
@@ -269,6 +345,95 @@ pub fn modularize_imports(config: Config) -> impl Fold {
         ));
     }
     folder
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, Hash, PartialEq)]
+struct TransformNameJson {
+    name: TransformerName,
+}
+
+fn helper(
+    handlebar_helper: &Helper<'_, '_>,
+    _a: &Handlebars<'_>,
+    _b: &Context,
+    _c: &mut RenderContext<'_, '_>,
+    out: &mut dyn Output,
+) -> HelperResult {
+    let helper_name: TransformerName = handlebar_helper
+        .param(0)
+        .and_then(|v| {
+            let s = match v.value().as_str() {
+                Some(value) => value,
+                None => "",
+            };
+
+            let json = r#"
+                {
+                    "name": "{}"
+                }"#
+            .replace("{}", s);
+
+            match serde_json::from_str::<TransformNameJson>(&json) {
+                Ok(value) => Some(value.name),
+                Err(e) => {
+                    print!("Could not find the helper function '{}'", s);
+                    print!("'{}'", e.to_string());
+                    Some(TransformerName::None)
+                }
+            }
+        })
+        .unwrap_or(TransformerName::None);
+
+    let param1 = handlebar_helper
+        .param(1)
+        .and_then(|v| v.value().as_str())
+        .unwrap_or("");
+
+    let param2 = handlebar_helper
+        .param(2)
+        .and_then(|v| v.value().as_str())
+        .unwrap_or("");
+
+    let param3 = handlebar_helper
+        .param(3)
+        .and_then(|v| v.value().as_str())
+        .unwrap_or("");
+
+    match handlebar_helper.params().len() {
+        2 => {
+            let helper = TRANSFORM_MAPPING.args1.get(&helper_name);
+
+            match helper {
+                Some(h) => {
+                    out.write(h(param1).as_ref())?;
+                }
+                None => {}
+            }
+        }
+        3 => {
+            let helper = TRANSFORM_MAPPING.args2.get(&helper_name);
+
+            match helper {
+                Some(h) => {
+                    out.write(h(param1, param2).as_ref())?;
+                }
+                None => {}
+            }
+        }
+        4 => {
+            let helper = TRANSFORM_MAPPING.args3.get(&helper_name);
+
+            match helper {
+                Some(h) => {
+                    out.write(h(param1, param2, param3).as_ref())?;
+                }
+                None => {}
+            }
+        }
+        _ => {}
+    }
+
+    Ok(())
 }
 
 fn helper_lower_case(

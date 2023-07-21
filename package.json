@@ -1,8 +1,11 @@
 {
-  "name": "swc-plugins",
-  "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
-  "packageManager": "yarn@1.22.19"
+    "name": "swc-plugins",
+    "private": true,
+    "workspaces": [
+        "packages/*"
+    ],
+    "packageManager": "yarn@1.22.19",
+    "dependencies": {
+        "prettier": "^3.0.0"
+    }
 }

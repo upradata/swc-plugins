@@ -80,6 +80,15 @@ fn modularize_imports_fixture(input: PathBuf) {
                             skip_default_conversion: true,
                         },
                     ),
+                    (
+                        "my-library-helper".to_string(),
+                        PackageConfig {
+                            transform: "my-library-helper/{{ helper \"camel_case\" member }}"
+                                .into(),
+                            prevent_full_import: false,
+                            skip_default_conversion: true,
+                        },
+                    ),
                 ]
                 .into_iter()
                 .collect(),
