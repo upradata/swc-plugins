@@ -2,10 +2,7 @@ use std::collections::HashMap;
 
 use convert_case::{Case, Casing};
 use voca_rs::{
-    case::{
-        camel_case, kebab_case, lower_case, lower_first, pascal_case, snake_case, upper_case,
-        upper_first,
-    },
+    case::{camel_case, kebab_case, lower_case, lower_first, pascal_case, snake_case, upper_case, upper_first},
     manipulate::{replace, replace_all},
 };
 
@@ -165,11 +162,9 @@ impl<'a> Rewriter<'a> {
                     ctx.insert("member", Data::Plain(name_str));
 
                     let new_path = match &self.config.transform {
-                        Transform::String(s) => {
-                            self.renderer.render_template(s, &ctx).unwrap_or_else(|e| {
-                                panic!("error rendering template for '{}': {}", self.key, e);
-                            })
-                        }
+                        Transform::String(s) => self.renderer.render_template(s, &ctx).unwrap_or_else(|e| {
+                            panic!("error rendering template for '{}': {}", self.key, e);
+                        }),
                         Transform::Vec(v) => {
                             let mut result: Option<String> = None;
 
@@ -182,14 +177,11 @@ impl<'a> Rewriter<'a> {
 
                                 // Create a clone of the context, as we need to insert the
                                 // `memberMatches` key for each key we try.
-                                let mut ctx_with_member_matches: HashMap<&str, Data> =
-                                    HashMap::new();
-                                ctx_with_member_matches
-                                    .insert("matches", Data::Array(&self.group[..]));
+                                let mut ctx_with_member_matches: HashMap<&str, Data> = HashMap::new();
+                                ctx_with_member_matches.insert("matches", Data::Array(&self.group[..]));
                                 ctx_with_member_matches.insert("member", Data::Plain(name_str));
 
-                                let regex = CachedRegex::new(&key)
-                                    .expect("transform-imports: invalid regex");
+                                let regex = CachedRegex::new(&key).expect("transform-imports: invalid regex");
                                 let group = regex.captures(name_str);
 
                                 if let Some(group) = group {
@@ -198,19 +190,12 @@ impl<'a> Rewriter<'a> {
                                         .map(|x| x.map(|x| x.as_str()).unwrap_or_default())
                                         .collect::<Vec<&str>>()
                                         .clone();
-                                    ctx_with_member_matches
-                                        .insert("memberMatches", Data::Array(&group[..]));
 
-                                    result = Some(
-                                        self.renderer
-                                            .render_template(val, &ctx_with_member_matches)
-                                            .unwrap_or_else(|e| {
-                                                panic!(
-                                                    "error rendering template for '{}': {}",
-                                                    self.key, e
-                                                );
-                                            }),
-                                    );
+                                    ctx_with_member_matches.insert("memberMatches", Data::Array(&group[..]));
+
+                                    result = Some(self.renderer.render_template(val, &ctx_with_member_matches).unwrap_or_else(|e| {
+                                        panic!("error rendering template for '{}': {}", self.key, e);
+                                    }));
 
                                     true
                                 } else {
@@ -221,10 +206,7 @@ impl<'a> Rewriter<'a> {
                             if let Some(result) = result {
                                 result
                             } else {
-                                panic!(
-                                    "missing transform for import '{}' of package '{}'",
-                                    named_spec.local, self.key
-                                );
+                                panic!("missing transform for import '{}' of package '{}'", named_spec.local, self.key);
                             }
                         }
                     };
@@ -248,10 +230,7 @@ impl<'a> Rewriter<'a> {
                 }
                 _ => {
                     if self.config.prevent_full_import {
-                        panic!(
-                            "import {:?} causes the entire module to be imported",
-                            old_decl
-                        );
+                        panic!("import {:?} causes the entire module to be imported", old_decl);
                     } else {
                         // Give up
                         return vec![old_decl.clone()];
@@ -267,11 +246,10 @@ impl FoldImports {
     fn should_rewrite<'a>(&'a self, name: &'a str) -> Option<Rewriter<'a>> {
         for (regex, config) in &self.packages {
             let group = regex.captures(name);
+
             if let Some(group) = group {
-                let group = group
-                    .iter()
-                    .map(|x| x.map(|x| x.as_str()).unwrap_or_default())
-                    .collect::<Vec<&str>>();
+                let group = group.iter().map(|x| x.map(|x| x.as_str()).unwrap_or_default()).collect::<Vec<&str>>();
+
                 return Some(Rewriter {
                     renderer: &self.renderer,
                     key: name,
@@ -280,6 +258,7 @@ impl FoldImports {
                 });
             }
         }
+
         None
     }
 }
@@ -291,19 +270,13 @@ impl Fold for FoldImports {
         let mut new_items: Vec<ModuleItem> = vec![];
         for item in module.body {
             match item {
-                ModuleItem::ModuleDecl(ModuleDecl::Import(decl)) => {
-                    match self.should_rewrite(&decl.src.value) {
-                        Some(rewriter) => {
-                            let rewritten = rewriter.rewrite(&decl);
-                            new_items.extend(
-                                rewritten
-                                    .into_iter()
-                                    .map(|x| ModuleItem::ModuleDecl(ModuleDecl::Import(x))),
-                            );
-                        }
-                        None => new_items.push(ModuleItem::ModuleDecl(ModuleDecl::Import(decl))),
+                ModuleItem::ModuleDecl(ModuleDecl::Import(decl)) => match self.should_rewrite(&decl.src.value) {
+                    Some(rewriter) => {
+                        let rewritten = rewriter.rewrite(&decl);
+                        new_items.extend(rewritten.into_iter().map(|x| ModuleItem::ModuleDecl(ModuleDecl::Import(x))));
                     }
-                }
+                    None => new_items.push(ModuleItem::ModuleDecl(ModuleDecl::Import(decl))),
+                },
                 x => {
                     new_items.push(x);
                 }
@@ -319,18 +292,10 @@ pub fn modularize_imports(config: Config) -> impl Fold {
         renderer: handlebars::Handlebars::new(),
         packages: vec![],
     };
-    folder
-        .renderer
-        .register_helper("lowerCase", Box::new(helper_lower_case));
-    folder
-        .renderer
-        .register_helper("upperCase", Box::new(helper_upper_case));
-    folder
-        .renderer
-        .register_helper("camelCase", Box::new(helper_camel_case));
-    folder
-        .renderer
-        .register_helper("kebabCase", Box::new(helper_kebab_case));
+    folder.renderer.register_helper("lowerCase", Box::new(helper_lower_case));
+    folder.renderer.register_helper("upperCase", Box::new(helper_upper_case));
+    folder.renderer.register_helper("camelCase", Box::new(helper_camel_case));
+    folder.renderer.register_helper("kebabCase", Box::new(helper_kebab_case));
 
     folder.renderer.register_helper("helper", Box::new(helper));
 
@@ -339,10 +304,7 @@ pub fn modularize_imports(config: Config) -> impl Fold {
         if !k.starts_with('^') && !k.ends_with('$') {
             k = format!("^{}$", k);
         }
-        folder.packages.push((
-            CachedRegex::new(&k).expect("transform-imports: invalid regex"),
-            v,
-        ));
+        folder.packages.push((CachedRegex::new(&k).expect("transform-imports: invalid regex"), v));
     }
     folder
 }
@@ -384,20 +346,11 @@ fn helper(
         })
         .unwrap_or(TransformerName::None);
 
-    let param1 = handlebar_helper
-        .param(1)
-        .and_then(|v| v.value().as_str())
-        .unwrap_or("");
+    let param1 = handlebar_helper.param(1).and_then(|v| v.value().as_str()).unwrap_or("");
 
-    let param2 = handlebar_helper
-        .param(2)
-        .and_then(|v| v.value().as_str())
-        .unwrap_or("");
+    let param2 = handlebar_helper.param(2).and_then(|v| v.value().as_str()).unwrap_or("");
 
-    let param3 = handlebar_helper
-        .param(3)
-        .and_then(|v| v.value().as_str())
-        .unwrap_or("");
+    let param3 = handlebar_helper.param(3).and_then(|v| v.value().as_str()).unwrap_or("");
 
     match handlebar_helper.params().len() {
         2 => {
@@ -436,39 +389,21 @@ fn helper(
     Ok(())
 }
 
-fn helper_lower_case(
-    h: &Helper<'_, '_>,
-    _: &Handlebars<'_>,
-    _: &Context,
-    _: &mut RenderContext<'_, '_>,
-    out: &mut dyn Output,
-) -> HelperResult {
+fn helper_lower_case(h: &Helper<'_, '_>, _: &Handlebars<'_>, _: &Context, _: &mut RenderContext<'_, '_>, out: &mut dyn Output) -> HelperResult {
     // get parameter from helper or throw an error
     let param = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
     out.write(param.to_lowercase().as_ref())?;
     Ok(())
 }
 
-fn helper_upper_case(
-    h: &Helper<'_, '_>,
-    _: &Handlebars<'_>,
-    _: &Context,
-    _: &mut RenderContext<'_, '_>,
-    out: &mut dyn Output,
-) -> HelperResult {
+fn helper_upper_case(h: &Helper<'_, '_>, _: &Handlebars<'_>, _: &Context, _: &mut RenderContext<'_, '_>, out: &mut dyn Output) -> HelperResult {
     // get parameter from helper or throw an error
     let param = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
     out.write(param.to_uppercase().as_ref())?;
     Ok(())
 }
 
-fn helper_camel_case(
-    h: &Helper<'_, '_>,
-    _: &Handlebars<'_>,
-    _: &Context,
-    _: &mut RenderContext<'_, '_>,
-    out: &mut dyn Output,
-) -> HelperResult {
+fn helper_camel_case(h: &Helper<'_, '_>, _: &Handlebars<'_>, _: &Context, _: &mut RenderContext<'_, '_>, out: &mut dyn Output) -> HelperResult {
     // get parameter from helper or throw an error
     let param = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
 
@@ -476,13 +411,7 @@ fn helper_camel_case(
     Ok(())
 }
 
-fn helper_kebab_case(
-    h: &Helper<'_, '_>,
-    _: &Handlebars<'_>,
-    _: &Context,
-    _: &mut RenderContext<'_, '_>,
-    out: &mut dyn Output,
-) -> HelperResult {
+fn helper_kebab_case(h: &Helper<'_, '_>, _: &Handlebars<'_>, _: &Context, _: &mut RenderContext<'_, '_>, out: &mut dyn Output) -> HelperResult {
     // get parameter from helper or throw an error
     let param = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
 

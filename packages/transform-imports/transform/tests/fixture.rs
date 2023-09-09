@@ -62,18 +62,10 @@ fn modularize_imports_fixture(input: PathBuf) {
                                 ("bar".to_string(), "my-library-4/bar".to_string()),
                                 (
                                     "use(\\w*)".to_string(),
-                                    "my-library-4/{{ kebabCase member }}/{{ kebabCase \
-                                     memberMatches.[1] }}"
-                                        .to_string(),
+                                    "my-library-4/{{ kebabCase member }}/{{ kebabCase memberMatches.[1] }}".to_string(),
                                 ),
-                                (
-                                    "(\\w*)Icon".to_string(),
-                                    "my-library-4/{{ kebabCase memberMatches.[1] }}".to_string(),
-                                ),
-                                (
-                                    "*".to_string(),
-                                    "my-library-4/{{ upperCase member }}".to_string(),
-                                ),
+                                ("(\\w*)Icon".to_string(), "my-library-4/{{ kebabCase memberMatches.[1] }}".to_string()),
+                                ("*".to_string(), "my-library-4/{{ upperCase member }}".to_string()),
                             ])
                             .into(),
                             prevent_full_import: false,
@@ -83,8 +75,7 @@ fn modularize_imports_fixture(input: PathBuf) {
                     (
                         "my-library-helper".to_string(),
                         PackageConfig {
-                            transform: "my-library-helper/{{ helper \"camel_case\" member }}"
-                                .into(),
+                            transform: "my-library-helper/{{ helper \"camel_case\" member }}".into(),
                             prevent_full_import: false,
                             skip_default_conversion: true,
                         },
@@ -96,8 +87,6 @@ fn modularize_imports_fixture(input: PathBuf) {
         },
         &input,
         &output,
-        FixtureTestConfig {
-            ..Default::default()
-        },
+        FixtureTestConfig { ..Default::default() },
     );
 }
